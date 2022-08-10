@@ -1,0 +1,97 @@
+version: '3'
+services:
+
+  auth_redis:
+    container_name: auth_redis
+    build:
+      context: .
+      dockerfile: docker_config/redis/Dockerfile
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - auth_redis_data:/data
+    networks:
+      - yandex_network
+
+  auth_postgres:
+    build:
+      context: .
+      dockerfile: docker_config/postgres/Dockerfile
+    container_name: auth_postgres
+    env_file:
+      - .env
+    volumes:
+      - auth_postgres_data:/var/lib/postgresql/data
+    command: -p $POSTGRES_PORT
+    networks:
+      - yandex_network
+
+  auth_app:
+    build:
+      context: .
+      dockerfile: docker_config/app/Dockerfile
+    container_name: auth_app
+    env_file:
+      - .env
+    expose:
+      - 5000
+    depends_on:
+      - auth_redis
+      - auth_postgres
+    networks:
+      - yandex_network
+
+  auth_grpc:
+    build:
+      context: .
+      dockerfile: docker_config/grpc/Dockerfile
+    container_name: auth_grpc
+    entrypoint: [ "python3",  "grpc_app/server.py" ]
+    env_file:
+      - .env
+    depends_on:
+      - auth_redis
+      - auth_postgres
+      - auth_app
+    networks:
+      - yandex_network
+
+  auth_nginx:
+    image: nginx:1.21.6-alpine
+    container_name: auth_nginx
+    restart: unless-stopped
+    tty: true
+    volumes:
+      - ./docker_config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker_config/nginx/app.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - auth_app
+      - auth_redis
+      - auth_postgres
+    networks:
+      - yandex_network
+
+  auth_jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: auth_jaeger
+    ports:
+      - "5775:5775/udp"
+      - "6831:6831/udp"
+      - "6832:6832/udp"
+      - "5778:5778/tcp"
+      - "16686:16686"
+      - "14268:14268"
+      - "9411:9411"
+    networks:
+      - yandex_network
+
+networks:
+  yandex_network:
+    external: true
+volumes:
+  auth_redis_data:
+  auth_postgres_data:
+

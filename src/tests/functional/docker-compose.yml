@@ -1,0 +1,49 @@
+version: '3'
+services:
+
+  test_auth_redis:
+    container_name: test_auth_redis
+    build:
+      context: ../../..
+      dockerfile: ./docker_config/redis/Dockerfile
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - test_auth_redis_data:/data
+    ports:
+      - $REDIS_PORT:6379
+
+  test_auth_postgres:
+    image: postgres:13-alpine
+    container_name: test_auth_postgres
+    env_file:
+      - .env
+    volumes:
+      - test_auth_postgres_data:/var/lib/postgresql/data
+    ports:
+      - $POSTGRES_PORT:$POSTGRES_PORT
+    command: -p $POSTGRES_PORT
+
+  test_auth_app:
+    build:
+      context: ../../..
+      dockerfile: ./docker_config/app/Dockerfile
+    container_name: test_auth_app
+    image: auth_app
+    volumes:
+      - ../../../src/app:/opt/auth/app
+      - ../../../src/migrations:/opt/auth/migrations
+    entrypoint: ["python3", "runserver.py"]
+    env_file:
+      - .env
+    ports:
+      - 5000:5000
+    depends_on:
+      - test_auth_redis
+      - test_auth_postgres
+
+volumes:
+  test_auth_redis_data:
+  test_auth_postgres_data:
+

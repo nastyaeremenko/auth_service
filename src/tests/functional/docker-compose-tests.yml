@@ -1,0 +1,17 @@
+version: '3'
+services:
+
+  test_auth_tests:
+    image: auth_app
+    environment:
+      PYTHONPATH: /opt/auth/tests
+    volumes:
+      - ../../tests:/opt/auth/tests
+    entrypoint: >
+      sh -c "pip install -r ./tests/functional/requirements.txt
+      && python3 ./tests/functional/utils/wait_for_redis.py
+      && pytest ./tests/functional/src "
+    env_file:
+      - .env
+
+
